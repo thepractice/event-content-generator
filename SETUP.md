@@ -12,14 +12,18 @@ pip3 install -r requirements.txt
 cp .env.example .env
 ```
 
-Edit `.env` and add your API key:
+Edit `.env` and add your API keys:
 ```
 OPENAI_API_KEY=your_key_here
+GEMINI_API_KEY=your_gemini_key_here  # Optional: for image generation
 ```
 
-Note: Only OpenAI key is required. The app uses:
-- **OpenAI GPT-4o** for content generation (drafter, critic, verifier nodes)
+**Required:**
+- **OPENAI_API_KEY** — GPT-4o for content generation (drafter, critic, verifier nodes)
 - **Local sentence-transformers** for embeddings (no API needed)
+
+**Optional:**
+- **GEMINI_API_KEY** — Gemini 2.5 Flash for marketing image generation. Get one at [Google AI Studio](https://aistudio.google.com/apikey)
 
 ### 3. Run the App
 ```bash
@@ -39,14 +43,15 @@ Click "Ingest Corpus Documents" in the sidebar. This:
 ```
 event-content-generator/
 ├── src/
-│   ├── graph.py          # LangGraph pipeline (retrieve→draft→critic→verify→export)
+│   ├── graph.py          # LangGraph pipeline (retrieve→draft→critic→verify→images→export)
 │   ├── schemas.py        # Pydantic models (Claim, ChannelDraft, CriticFeedback)
-│   ├── prompts.py        # All LLM prompts
+│   ├── prompts.py        # All LLM prompts + image prompts
 │   ├── nodes/            # Pipeline nodes
 │   │   ├── retriever.py  # RAG chunk retrieval
 │   │   ├── drafter.py    # Content generation (GPT-4o)
 │   │   ├── critic.py     # Quality scoring
 │   │   ├── verifier.py   # Claim verification
+│   │   ├── image_generator.py  # Marketing image generation (Gemini)
 │   │   └── exporter.py   # Final output packaging
 │   └── rag/
 │       ├── ingest.py     # Corpus → ChromaDB
@@ -74,15 +79,18 @@ event-content-generator/
 | Event Description | Join us for a deep dive into implementing Zero Trust architecture. Learn from security experts about identity-first security approaches. |
 | Target Audience | Enterprise Security Leaders and CTOs |
 | Key Messages | Zero Trust starts with identity<br>Traditional perimeter security is obsolete<br>Reduces breach risk significantly |
+| Relevant URLs | Registration \| https://example.com/register<br>Learn More \| https://example.com/zero-trust |
 | Channels | LinkedIn, Email |
 
 ## Pipeline Flow
 
 ```
-INPUT → RETRIEVER → DRAFTER → CRITIC → VERIFIER → [LOOP?] → EXPORTER
+INPUT → RETRIEVER → DRAFTER → CRITIC → VERIFIER → [LOOP?] → GENERATE_IMAGES → EXPORTER
                          ↑__________________________|
                          (loops if quality < 7 or unsupported claims, max 3x)
 ```
+
+**Image Generation:** After content passes quality checks, marketing images are generated for each channel using Gemini 2.5 Flash (if `GEMINI_API_KEY` is set). Images are tailored to each channel's style (professional for LinkedIn, engaging for Facebook, etc.).
 
 ## Troubleshooting
 

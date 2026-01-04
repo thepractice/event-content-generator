@@ -123,7 +123,7 @@ def should_continue(state: ContentGeneratorState) -> str:
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                                                                 │
-│  INPUT (Event Form)                                             │
+│  INPUT (Event Form + Relevant URLs)                             │
 │    ↓                                                            │
 │  ┌──────────┐                                                   │
 │  │ RETRIEVE │ Query ChromaDB for brand voice + product docs     │
@@ -148,11 +148,15 @@ def should_continue(state: ContentGeneratorState) -> str:
 │    ┌─────┴─────┐                                                │
 │    │           │                                                │
 │    ↓           ↓                                                │
-│  LOOP       ┌──────────┐                                        │
-│  (back to   │  EXPORT  │ Format final output                    │
-│   DRAFT)    └────┬─────┘                                        │
-│                  ↓                                              │
-│               OUTPUT (Content + Claims + Audit Log)             │
+│  LOOP       ┌─────────────────┐                                 │
+│  (back to   │ GENERATE_IMAGES │ Create visuals (Gemini API)     │
+│   DRAFT)    └───────┬─────────┘                                 │
+│                     ↓                                           │
+│               ┌──────────┐                                      │
+│               │  EXPORT  │ Format final output                  │
+│               └────┬─────┘                                      │
+│                    ↓                                            │
+│               OUTPUT (Content + Images + Claims + Audit Log)    │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -168,6 +172,7 @@ class ContentGeneratorState(TypedDict):
     target_audience: str
     key_messages: List[str]
     channels: List[str]
+    relevant_urls: List[Dict[str, str]]  # [{"label": "Register", "url": "https://..."}]
 
     # Retrieved context (from RAG)
     brand_chunks: List[dict]
@@ -182,6 +187,9 @@ class ContentGeneratorState(TypedDict):
     # Loop control
     iteration: int
 
+    # Generated images (from Gemini)
+    images: Dict[str, bytes]  # {"linkedin": raw_image_bytes, ...}
+
     # Output
     final_output: Optional[dict]
     audit_log: List[dict]
@@ -195,6 +203,7 @@ class ContentGeneratorState(TypedDict):
 | **draft** | Write content | 1 per channel | `drafts` dict |
 | **critic** | Evaluate quality | 1 | `critic_feedback` with scores |
 | **verify** | Check factual claims | 1 per channel | Claims with `source_chunk_id` |
+| **generate_images** | Create marketing visuals | 1 per channel (Gemini API) | `images` dict with raw bytes |
 | **export** | Format output | 0 | `final_output` dict |
 
 ### Loop Conditions
@@ -300,6 +309,7 @@ src/
     ├── drafter.py    # Content generation node
     ├── critic.py     # Quality evaluation node
     ├── verifier.py   # Claim verification node
+    ├── image_generator.py  # Marketing image generation (Gemini)
     └── exporter.py   # Final output formatting
 ```
 
